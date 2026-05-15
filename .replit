@@ -4,7 +4,6 @@ modules = ["nodejs-24"]
 router = "application"
 deploymentTarget = "autoscale"
 build = ["sh", "-c", "pnpm --filter @workspace/kora-wallet run build && pnpm --filter @workspace/api-server run build"]
-publicDir = "artifacts/kora-wallet/dist/public"
 run = ["sh", "-c", "PORT=8080 pnpm --filter @workspace/api-server run start"]
 
 [deployment.postBuild]
