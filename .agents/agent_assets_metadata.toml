@@ -1,0 +1,32 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "yfWEAKAlnW91D72eWQ8QK"
+uri = "file://artifacts/kora-wallet/public/images/robot-logo.png"
+type = "image"
+title = "KORA signature robot logo"
+
+[[generated]]
+id = "8GEWEufwbYlGmQqLjuCsX"
+uri = "file://artifacts/kora-wallet/public/images/robot-nano.png"
+type = "image"
+title = "Nano tier red robot"
+
+[[generated]]
+id = "u9wpDs6IDpErHPVFiWiLX"
+uri = "file://artifacts/kora-wallet/public/images/robot-micro.png"
+type = "image"
+title = "Micro tier red robot"
+
+[[generated]]
+id = "7XAgDdNnnof_ZqVrnpNcU"
+uri = "file://artifacts/kora-wallet/public/images/robot-pro.png"
+type = "image"
+title = "Pro tier red robot"
+
+[[generated]]
+id = "0oedM2967sPGdjzJZ_Jcp"
+uri = "file://artifacts/kora-wallet/public/images/robot-elite.png"
+type = "image"
+title = "Elite tier red robot"
