@@ -85,6 +85,7 @@ export interface WalletContextType {
   getAccountPhrase: (id: string) => string | null;
   getAccountPrivateKey: (id: string) => string | null;
   syncSolBalance: (sol: number) => void;
+  importDirect: (input: string) => { ok: boolean; error?: string };
 }
 
 // ─── context (exported so WalletProvider can share the same object) ───────────

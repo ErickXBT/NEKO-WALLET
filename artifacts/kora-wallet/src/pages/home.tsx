@@ -26,17 +26,12 @@ export default function Home() {
   const [remoteChecking, setRemoteChecking] = useState(false);
   const [remoteTaken, setRemoteTaken] = useState<boolean | null>(null);
 
-  const [impId, setImpId] = useState("");
-  const [impPw, setImpPw] = useState("");
-  const [impConfirmPw, setImpConfirmPw] = useState("");
-  const [impPhrase, setImpPhrase] = useState("");
-  const [impShowPhrase, setImpShowPhrase] = useState(false);
+  const [impInput, setImpInput] = useState("");
+  const [impShowInput, setImpShowInput] = useState(false);
   const [impLoading, setImpLoading] = useState(false);
-  const [impRemoteChecking, setImpRemoteChecking] = useState(false);
-  const [impRemoteTaken, setImpRemoteTaken] = useState<boolean | null>(null);
 
   const [, setLocation] = useLocation();
-  const { connect, createWallet, importWallet, walletIdExists, checkWalletIdRemote } = useWallet();
+  const { connect, createWallet, importDirect, walletIdExists, checkWalletIdRemote } = useWallet();
   const { toast } = useToast();
 
   const cleanNewId = newId.trim().toUpperCase();
@@ -60,28 +55,12 @@ export default function Home() {
     return () => clearTimeout(timer);
   }, [cleanNewId, idValid, idLocallyTaken]);
 
-  const cleanImpId = impId.trim().toUpperCase();
-  const impIdValid = /^[A-Z0-9_]{4,20}$/.test(cleanImpId);
-  const impIdLocallyTaken = impIdValid && walletIdExists(cleanImpId);
-  const impIdTaken = impIdLocallyTaken || impRemoteTaken === true;
-  const impIdAvailable = impIdValid && !impIdTaken && impRemoteTaken === false;
-  const impPwLongEnough = impPw.length >= 6;
-  const impPwMatches = impPw.length > 0 && impPw === impConfirmPw;
-  const impWordCount = impPhrase.trim().split(/\s+/).filter(Boolean).length;
-  const impPhraseValid = impWordCount === 12 || impWordCount === 24;
-  const canImport = impIdAvailable && impPwLongEnough && impPwMatches && impPhraseValid && !impLoading;
-
-  useEffect(() => {
-    if (!impIdValid || impIdLocallyTaken) { setImpRemoteTaken(null); return; }
-    setImpRemoteTaken(null);
-    setImpRemoteChecking(true);
-    const timer = setTimeout(async () => {
-      const taken = await checkWalletIdRemote(cleanImpId);
-      setImpRemoteTaken(taken);
-      setImpRemoteChecking(false);
-    }, 500);
-    return () => clearTimeout(timer);
-  }, [cleanImpId, impIdValid, impIdLocallyTaken]);
+  const impTrimmed = impInput.trim();
+  const impWords = impTrimmed.toLowerCase().split(/\s+/).filter(Boolean);
+  const impIsMnemonic = impWords.length === 12 || impWords.length === 24;
+  const impIsPrivateKey = !impIsMnemonic && impTrimmed.length >= 32;
+  const impDetected = impIsMnemonic ? `${impWords.length}-word seed phrase` : impIsPrivateKey ? "private key" : null;
+  const canImport = (impIsMnemonic || impIsPrivateKey) && !impLoading;
 
   const handleConnect = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -112,12 +91,12 @@ export default function Home() {
 
   const handleImport = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canImport) { toast({ title: "Please fix the form", variant: "destructive" }); return; }
+    if (!canImport) return;
     setImpLoading(true);
-    const res = await importWallet(cleanImpId, impPw, impPhrase);
+    const res = importDirect(impInput);
     setImpLoading(false);
     if (res.ok) {
-      toast({ title: "Wallet imported", description: `Welcome, @${cleanImpId.toLowerCase()}` });
+      toast({ title: "Wallet imported", description: "Welcome back!" });
       setLocation("/wallet");
     } else {
       toast({ title: "Import failed", description: res.error, variant: "destructive" });
@@ -256,77 +235,36 @@ export default function Home() {
             {activeTab === "import" && (
               <form onSubmit={handleImport} className="space-y-5">
                 <div className="p-3 rounded-xl bg-primary/5 border border-primary/20 text-xs text-muted-foreground leading-relaxed">
-                  Paste your <span className="text-primary font-semibold">12 or 24-word seed phrase</span> from NEKO or Phantom. Your existing Solana address will be restored.
+                  Paste your <span className="text-primary font-semibold">12 or 24-word seed phrase</span> or <span className="text-primary font-semibold">private key</span>. Your Solana wallet will be restored instantly.
                 </div>
 
                 <div className="space-y-2">
-                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Seed Phrase</Label>
+                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Seed Phrase or Private Key</Label>
                   <div className="relative">
                     <textarea
-                      value={impPhrase}
-                      onChange={(e) => setImpPhrase(e.target.value)}
-                      placeholder="word1 word2 word3 … word12"
+                      value={impInput}
+                      onChange={(e) => setImpInput(e.target.value)}
+                      placeholder="word1 word2 … word12  or  base58 private key"
                       rows={3}
-                      className={`w-full rounded-lg border px-3 py-3 text-sm font-mono bg-background/50 resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 transition-colors ${
-                        impShowPhrase ? "text-foreground" : "text-transparent [text-shadow:0_0_8px_rgba(255,255,255,0.5)]"
-                      } border-border/50`}
+                      className={`w-full rounded-lg border px-3 py-3 text-sm font-mono bg-background/50 resize-none focus:outline-none focus:ring-2 focus:ring-primary/50 transition-colors border-border/50 ${
+                        impShowInput ? "text-foreground" : "text-transparent [text-shadow:0_0_8px_rgba(255,255,255,0.5)]"
+                      }`}
                       autoComplete="off"
                       spellCheck={false}
                       required
                     />
                     <button
                       type="button"
-                      onClick={() => setImpShowPhrase(v => !v)}
+                      onClick={() => setImpShowInput(v => !v)}
                       className="absolute top-2.5 right-2.5 text-muted-foreground hover:text-white transition-colors"
                     >
-                      {impShowPhrase ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      {impShowInput ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                     </button>
                   </div>
-                  {impPhrase.trim() && (
-                    <p className={`text-[11px] flex items-center gap-1 ${impPhraseValid ? "text-green-500" : "text-amber-400"}`}>
+                  {impTrimmed && (
+                    <p className={`text-[11px] flex items-center gap-1 ${impDetected ? "text-green-500" : "text-amber-400"}`}>
                       <AlertCircle className="w-3 h-3" />
-                      {impPhraseValid ? `${impWordCount}-word phrase detected` : `${impWordCount} word${impWordCount !== 1 ? "s" : ""} — need 12 or 24`}
-                    </p>
-                  )}
-                </div>
-
-                <IdField
-                  value={impId}
-                  onChange={setImpId}
-                  checking={impRemoteChecking}
-                  available={impIdAvailable}
-                  taken={impIdTaken}
-                  valid={impIdValid}
-                  label="Choose a Wallet ID"
-                />
-
-                <div className="space-y-2">
-                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">New Password</Label>
-                  <Input
-                    type="password"
-                    value={impPw}
-                    onChange={(e) => setImpPw(e.target.value)}
-                    placeholder="At least 6 characters"
-                    className="bg-background/50 border-border/50 h-12"
-                    autoComplete="new-password"
-                    required
-                  />
-                </div>
-
-                <div className="space-y-2">
-                  <Label className="text-xs uppercase tracking-wider text-muted-foreground">Confirm Password</Label>
-                  <Input
-                    type="password"
-                    value={impConfirmPw}
-                    onChange={(e) => setImpConfirmPw(e.target.value)}
-                    placeholder="Repeat your password"
-                    className={`bg-background/50 h-12 ${impConfirmPw && !impPwMatches ? "border-red-500/60" : "border-border/50"}`}
-                    autoComplete="new-password"
-                    required
-                  />
-                  {impConfirmPw && !impPwMatches && (
-                    <p className="text-[11px] text-red-400 flex items-center gap-1">
-                      <AlertCircle className="w-3 h-3" /> Passwords do not match
+                      {impDetected ? `${impDetected} detected` : "Enter a valid 12/24-word seed phrase or base58 private key"}
                     </p>
                   )}
                 </div>
@@ -336,7 +274,7 @@ export default function Home() {
                   disabled={!canImport}
                   className="w-full h-12 bg-gradient-to-r from-primary to-[#8a9500] hover:opacity-90 text-primary-foreground font-bold tracking-widest uppercase shadow-[0_0_15px_rgba(225,243,17,0.3)] disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {impLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Import Wallet"}
+                  {impLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Connect Wallet"}
                 </Button>
               </form>
             )}

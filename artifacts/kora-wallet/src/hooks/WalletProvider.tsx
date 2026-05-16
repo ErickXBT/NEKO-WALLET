@@ -242,6 +242,59 @@ export function WalletProvider({ children }: { children: ReactNode }) {
     return { ok: true };
   };
 
+  const importDirect = (input: string): { ok: boolean; error?: string } => {
+    const trimmed = input.trim();
+    if (!trimmed) return { ok: false, error: "Please enter a seed phrase or private key" };
+
+    let address: string;
+    let secretKeyBytes: Uint8Array;
+    let phrase = "";
+
+    const words = trimmed.toLowerCase().split(/\s+/).filter(Boolean);
+    if (words.length === 12 || words.length === 24) {
+      const clean = words.join(" ");
+      if (!validateMnemonic(clean)) return { ok: false, error: "Invalid seed phrase — check all words" };
+      const kp = keypairFromMnemonic(clean, 0);
+      address = kp.publicKey;
+      secretKeyBytes = kp.secretKeyBytes;
+      phrase = clean;
+    } else {
+      try {
+        const rawBytes = fromBase58(trimmed);
+        if (rawBytes.length !== 64) return { ok: false, error: "Invalid private key — expected 64-byte Solana key in base58" };
+        const kp = keypairFromSecretBytes(rawBytes);
+        address = kp.publicKey;
+        secretKeyBytes = kp.secretKeyBytes;
+      } catch {
+        return { ok: false, error: "Unrecognised input — enter a 12/24-word seed phrase or a base58 private key" };
+      }
+    }
+
+    const walletId = address.replace(/[^A-Z0-9]/gi, "").slice(0, 16).toUpperCase() || "IMPORTED";
+    const importedAccount: SubAccount = {
+      id: "acc_" + Math.random().toString(36).slice(2) + Date.now().toString(36),
+      name: "Account 1",
+      address,
+      phrase,
+      privateKey: bytesToBase64(secretKeyBytes),
+      solBalance: 0,
+      holdings: {},
+      agents: [],
+      cardOrder: null,
+    };
+    const newState: WalletState = {
+      walletId,
+      accounts: [importedAccount],
+      activeAccountId: importedAccount.id,
+      creator: defaultCreator,
+    };
+    saveStored(walletId, { ...newState, passwordHash: "" });
+    if (!getRegistry().includes(walletId)) setRegistry([...getRegistry(), walletId]);
+    passwordRef.current = "";
+    setState(newState);
+    return { ok: true };
+  };
+
   const disconnect = () => setState(defaultState);
 
   const updateActiveAccount = (updater: (acc: SubAccount) => SubAccount) => {
@@ -495,6 +548,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         getAccountPrivateKey,
         syncSolBalance,
         depositToAccount,
+        importDirect,
       }}
     >
       {children}
